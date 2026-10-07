@@ -1,0 +1,8 @@
+AUREUS Quick Setup
+
+1. Download the AUREUS app package.
+2. Open the installer and follow the on-screen prompts.
+3. Accept the permissions requested by the installer.
+4. Launch AUREUS and sign in or create your account.
+
+AUREUS is ready to help you stay focused, organized, and productive.
