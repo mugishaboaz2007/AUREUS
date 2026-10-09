@@ -432,3 +432,340 @@
     animation-duration: .01ms !important;
   }
 }
+
+/* Let the library use the available canvas while keeping readable card widths. */
+.app__shell {
+  width: min(100%, 1760px);
+  max-width: none;
+}
+
+.app__sidebar {
+  width: clamp(200px, 16vw, 270px);
+}
+
+.app__main {
+  width: auto;
+  max-width: none;
+  min-width: 0;
+  flex: 1;
+  margin: 0;
+  padding: clamp(30px, 3.5vw, 64px) clamp(24px, 3.5vw, 64px) 64px;
+}
+
+.screenshot-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: clamp(12px, 1.25vw, 20px);
+}
+
+.screenshot-card,
+.screenshot-card__open,
+.screenshot-card__info,
+.screenshot-card__text {
+  min-width: 0;
+}
+
+.screenshot-card__img {
+  object-fit: contain;
+}
+
+.library-hero {
+  gap: 20px;
+}
+
+.library-hero > div {
+  min-width: 0;
+}
+
+.library-hero h2,
+.categories-page h2,
+.settings-page h2,
+.detail-panel__title,
+.modal__title {
+  overflow-wrap: anywhere;
+}
+
+.search-container {
+  max-width: none;
+}
+
+.search-bar {
+  max-width: none;
+}
+
+.empty-state,
+.app__loading {
+  min-height: clamp(260px, 38vh, 370px);
+}
+
+.categories-page {
+  width: 100%;
+  max-width: 1200px;
+}
+
+.category-cards {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+}
+
+.settings-page {
+  width: 100%;
+  max-width: 760px;
+}
+
+.detail-panel__img-wrap {
+  height: clamp(160px, 42vh, 560px);
+  min-height: min(160px, 42vh);
+  max-height: min(560px, 55vh);
+}
+
+.detail-panel__img {
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.detail-panel__actions {
+  flex-wrap: wrap;
+}
+
+@media (min-width: 1100px) {
+  .bottom-navigation {
+    position: fixed;
+    z-index: 25;
+    top: 14px;
+    left: 50%;
+    display: flex;
+    width: max-content;
+    height: 54px;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 4px;
+    transform: translateX(-50%);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: rgba(16, 31, 26, .95);
+    backdrop-filter: blur(15px);
+  }
+
+  .bottom-navigation__item {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 12px;
+    color: #aabbb3;
+    font-size: 12px;
+  }
+
+  .bottom-navigation__item svg,
+  .bottom-navigation__item .brand-mark {
+    width: 22px;
+    height: 22px;
+  }
+
+  .bottom-navigation__item--active {
+    color: var(--lime);
+  }
+
+  .bottom-navigation__indicator {
+    top: auto;
+    bottom: -2px;
+  }
+}
+
+@media (max-width: 1099px) {
+  .app__sidebar {
+    display: none;
+  }
+
+  .app__main {
+    padding: clamp(24px, 4vw, 40px) clamp(20px, 4vw, 38px) 96px;
+  }
+
+  .category-filter--compact {
+    display: block;
+    margin: 15px calc(-1 * clamp(20px, 4vw, 38px)) 0;
+    overflow: hidden;
+  }
+
+  .category-filter--compact .category-filter__list {
+    overflow-x: auto;
+    padding: 0 clamp(20px, 4vw, 38px) 5px;
+    flex-direction: row;
+    gap: 8px;
+    scrollbar-width: none;
+  }
+
+  .category-filter--compact .category-filter__list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .category-filter--compact .category-filter__item {
+    width: auto;
+    flex: none;
+    padding: 8px 12px;
+    border: 1px solid var(--line);
+    color: #b5c6bf;
+  }
+
+  .category-filter--compact .category-filter__icon {
+    display: none;
+  }
+
+  .category-filter--compact .category-filter__item--active {
+    color: #16211b;
+    background: var(--lime);
+    border-color: var(--lime);
+  }
+
+  .bottom-navigation {
+    display: flex;
+    position: fixed;
+    z-index: 30;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: auto;
+    justify-content: space-around;
+    height: calc(70px + env(safe-area-inset-bottom));
+    padding: 7px 8px env(safe-area-inset-bottom);
+    transform: none;
+    border: 0;
+    border-top: 1px solid var(--line);
+    border-radius: 0;
+    background: rgba(16, 31, 26, .95);
+  }
+
+  .bottom-navigation__item {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .bottom-navigation__item > span:last-child {
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 600px) {
+  .navbar {
+    height: auto;
+    min-height: 72px;
+    padding: 10px clamp(12px, 4vw, 19px);
+    gap: 10px;
+  }
+
+  .navbar__brand {
+    min-width: 0;
+  }
+
+  .navbar__actions {
+    flex: none;
+  }
+
+  .app__main {
+    padding: 24px clamp(14px, 4.5vw, 20px) 96px;
+  }
+
+  .library-hero {
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .library-hero h2,
+  .categories-page h2,
+  .settings-page h2 {
+    font-size: clamp(28px, 8vw, 36px);
+  }
+
+  .hero-import {
+    display: inline-flex;
+    flex: none;
+    padding: 9px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+  }
+
+  .category-filter--compact {
+    margin-right: calc(-1 * clamp(14px, 4.5vw, 20px));
+    margin-left: calc(-1 * clamp(14px, 4.5vw, 20px));
+  }
+
+  .category-filter--compact .category-filter__list {
+    padding-right: clamp(14px, 4.5vw, 20px);
+    padding-left: clamp(14px, 4.5vw, 20px);
+  }
+
+  .screenshot-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+    gap: 14px;
+    margin-top: 20px;
+  }
+
+  .screenshot-card {
+    border-radius: 16px;
+  }
+
+  .screenshot-card__actions {
+    opacity: 1;
+    transform: none;
+  }
+
+  .screenshot-card__delete {
+    display: inline-block;
+  }
+
+  .screenshot-card__info {
+    padding: 11px 12px 13px;
+  }
+
+  .screenshot-card__name {
+    font-size: 13px;
+  }
+
+  .detail-overlay,
+  .modal-overlay {
+    padding: 12px;
+    align-items: center;
+  }
+
+  .detail-panel,
+  .modal {
+    width: 100%;
+    max-height: min(90dvh, 850px);
+    border-radius: 20px;
+  }
+
+  .detail-panel__actions {
+    gap: 8px;
+  }
+
+  .detail-panel__actions .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 360px) {
+  .navbar {
+    gap: 6px;
+  }
+
+  .navbar__actions {
+    gap: 5px;
+  }
+
+  .add-button,
+  .pwa-install-button {
+    padding: 9px 8px;
+  }
+
+  .bottom-navigation {
+    padding-right: 4px;
+    padding-left: 4px;
+  }
+}

@@ -19,7 +19,7 @@ function HighlightedText({ value, query }) {
 }
 
 export default function ScreenshotCard({ screenshot, query = '', onSelect, onDelete, onToggleFavorite }) {
-  const { id, name, dataUrl, category, favorite, createdAt, note } = screenshot;
+  const { id, name, dataUrl, category, favorite, createdAt, note, pending } = screenshot;
   return (
     <article className="screenshot-card">
       <button type="button" className="screenshot-card__open" onClick={onSelect} aria-label={`Open ${name}`}>
@@ -33,7 +33,7 @@ export default function ScreenshotCard({ screenshot, query = '', onSelect, onDel
             <span className="screenshot-card__name" title={name}><HighlightedText value={name} query={query} /></span>
             {query && note && <span className="screenshot-card__note"><HighlightedText value={note} query={query} /></span>}
           </span>
-          <span className="screenshot-card__date">{formatDate(createdAt)}</span>
+          <span className="screenshot-card__date">{pending ? 'Saving…' : formatDate(createdAt)}</span>
         </span>
       </button>
       <div className="screenshot-card__actions">

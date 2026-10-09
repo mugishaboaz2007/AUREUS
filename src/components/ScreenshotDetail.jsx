@@ -7,7 +7,7 @@ function formatSize(bytes) { if (!bytes) return '—'; if (bytes < 1024) return 
 export default function ScreenshotDetail({ screenshot, categories, onClose, onDelete, onToggleFavorite, onSave, onNavigateToLibrary, onNavigateToCategory }) {
   const { id, name, dataUrl, category, favorite, createdAt, size, note } = screenshot;
   const [editNote, setEditNote] = useState(note || ''), [editCategory, setEditCategory] = useState(category || 'Personal'), [customCategory, setCustomCategory] = useState(''), [creatingCategory, setCreatingCategory] = useState(false), [saving, setSaving] = useState(false);
-  const save = async () => { const finalCategory = creatingCategory && customCategory.trim() ? customCategory.trim() : editCategory; if (finalCategory === category && editNote === (note || '')) return; setSaving(true); await onSave(id, { category: finalCategory, note: editNote }); setSaving(false); };
+  const save = async () => { const finalCategory = creatingCategory && customCategory.trim() ? customCategory.trim() : editCategory; if (finalCategory === category && editNote === (note || '')) return; setSaving(true); try { await onSave(id, { category: finalCategory, note: editNote }); } finally { setSaving(false); } };
   const download = () => { const link = document.createElement('a'); link.href = dataUrl; link.download = name; link.click(); };
   return <div className="detail-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Screenshot detail"><section className="detail-panel" onClick={(event) => event.stopPropagation()}>
     <header className="detail-panel__header"><h2 className="detail-panel__title" title={name}>{name}</h2><button className="detail-panel__close" onClick={onClose} aria-label="Close">×</button></header>

@@ -2,6 +2,7 @@
 const DB_NAME = 'ScreenshotOrganizerDB';
 const DB_VERSION = 1;
 const STORE_NAME = 'screenshots';
+const WRITE_BATCH_SIZE = 25;
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -25,19 +26,43 @@ function openDB() {
   });
 }
 
-export async function addScreenshot(screenshot) {
+export async function addScreenshots(screenshots) {
   const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    const store = tx.objectStore(STORE_NAME);
-    const request = store.add({
-      ...screenshot,
-      createdAt: Date.now(),
-      favorite: false,
+  const added = [];
+
+  for (let offset = 0; offset < screenshots.length; offset += WRITE_BATCH_SIZE) {
+    const batch = screenshots.slice(offset, offset + WRITE_BATCH_SIZE);
+    const inserted = await new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const records = batch.map((screenshot, index) => ({
+        ...screenshot,
+        createdAt: screenshot.createdAt ?? Date.now() + index,
+        favorite: screenshot.favorite ?? false,
+      }));
+      const ids = [];
+
+      records.forEach((record, index) => {
+        const request = store.add(record);
+        request.onsuccess = () => {
+          ids[index] = request.result;
+        };
+      });
+
+      tx.oncomplete = () => resolve(records.map((record, index) => ({ ...record, id: ids[index] })));
+      tx.onabort = () => reject(tx.error || new Error('Failed to add screenshots'));
+      tx.onerror = () => reject(tx.error || new Error('Failed to add screenshots'));
     });
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
+
+    added.push(...inserted);
+  }
+
+  return added;
+}
+
+export async function addScreenshot(screenshot) {
+  const [added] = await addScreenshots([screenshot]);
+  return added.id;
 }
 
 export async function getAllScreenshots() {
@@ -64,19 +89,25 @@ export async function getScreenshot(id) {
 
 export async function updateScreenshot(id, updates) {
   const db = await openDB();
-  return new Promise(async (resolve, reject) => {
+  return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readwrite');
     const store = tx.objectStore(STORE_NAME);
     const getReq = store.get(id);
+    let updated;
     getReq.onsuccess = () => {
       const existing = getReq.result;
-      if (!existing) return reject(new Error('Screenshot not found'));
-      const updated = { ...existing, ...updates };
-      const putReq = store.put(updated);
-      putReq.onsuccess = () => resolve(updated);
-      putReq.onerror = () => reject(putReq.error);
+      if (!existing) {
+        tx.abort();
+        reject(new Error('Screenshot not found'));
+        return;
+      }
+      updated = { ...existing, ...updates };
+      store.put(updated);
     };
-    getReq.onerror = () => reject(getReq.error);
+    getReq.onerror = () => reject(getReq.error || new Error('Failed to update screenshot'));
+    tx.oncomplete = () => resolve(updated);
+    tx.onabort = () => reject(tx.error || new Error('Failed to update screenshot'));
+    tx.onerror = () => reject(tx.error || new Error('Failed to update screenshot'));
   });
 }
 

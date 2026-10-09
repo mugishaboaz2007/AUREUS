@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { getAllScreenshots, addScreenshot, deleteScreenshot, updateScreenshot } from './db/db.js';
+import { getAllScreenshots, addScreenshots, deleteScreenshot, updateScreenshot } from './db/db.js';
 import Navbar from './components/Navbar.jsx';
 import BottomNavigation, { NavIcon } from './components/BottomNavigation.jsx';
 import SearchBar from './components/SearchBar.jsx';
@@ -32,6 +32,7 @@ export default function App() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const [mutationError, setMutationError] = useState('');
   const [customCategories, setCustomCategories] = useState([]);
   const searchInputRef = useRef(null);
 
@@ -113,11 +114,52 @@ export default function App() {
   }, []);
 
   const handleAdd = async (files, category, note) => {
-    for (const file of files) {
-      await addScreenshot({ name: file.name, dataUrl: await readFileAsDataURL(file), category: category || 'Personal', note: note || '', size: file.size, type: file.type });
-    }
-    await loadScreenshots();
+    const batchId = `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const optimistic = files.map((file, index) => ({
+      id: `${batchId}-${index}`,
+      name: file.name,
+      dataUrl: URL.createObjectURL(file),
+      category: category || 'Personal',
+      note: note || '',
+      size: file.size,
+      type: file.type,
+      createdAt: Date.now() + index,
+      favorite: false,
+      pending: true,
+    }));
+
+    setMutationError('');
+    setScreenshots((current) => [...optimistic, ...current].sort((a, b) => b.createdAt - a.createdAt));
     setShowAddModal(false);
+
+    try {
+      const records = await Promise.all(files.map(async (file, index) => ({
+        name: file.name,
+        dataUrl: await readFileAsDataURL(file),
+        category: category || 'Personal',
+        note: note || '',
+        size: file.size,
+        type: file.type,
+        createdAt: optimistic[index].createdAt,
+        favorite: false,
+      })));
+      const saved = await addScreenshots(records);
+      setScreenshots((current) => [
+        ...saved,
+        ...current.filter((shot) => !optimistic.some((pending) => pending.id === shot.id)),
+      ].sort((a, b) => b.createdAt - a.createdAt));
+      const customCategory = category || 'Personal';
+      if (customCategory && !DEFAULT_CATEGORIES.includes(customCategory)) {
+        setCustomCategories((current) => current.includes(customCategory) ? current : [...current, customCategory]);
+      }
+    } catch (error) {
+      console.error('Failed to import screenshots:', error);
+      setScreenshots((current) => current.filter((shot) => !optimistic.some((pending) => pending.id === shot.id)));
+      await loadScreenshots();
+      setMutationError(`Could not import the selected screenshots. Unsaved previews were removed. ${getErrorMessage(error)}`);
+    } finally {
+      optimistic.forEach((shot) => URL.revokeObjectURL(shot.dataUrl));
+    }
   };
 
   const handleDelete = (id) => {
@@ -127,39 +169,83 @@ export default function App() {
 
   const confirmDelete = async () => {
     if (!pendingDelete) return;
-    await deleteScreenshot(pendingDelete.id);
-    if (selectedId === pendingDelete.id) setSelectedId(null);
-    if (undoEdit?.id === pendingDelete.id) setUndoEdit(null);
+    const screenshot = pendingDelete;
+    const wasSelected = selectedId === screenshot.id;
     setPendingDelete(null);
-    await loadScreenshots();
+    setMutationError('');
+    setScreenshots((current) => current.filter((item) => item.id !== screenshot.id));
+    if (wasSelected) setSelectedId(null);
+    try {
+      await deleteScreenshot(screenshot.id);
+      if (undoEdit?.id === screenshot.id) setUndoEdit(null);
+    } catch (error) {
+      console.error('Failed to delete screenshot:', error);
+      setScreenshots((current) => current.some((item) => item.id === screenshot.id)
+        ? current
+        : [...current, screenshot].sort((a, b) => b.createdAt - a.createdAt));
+      if (wasSelected) setSelectedId(screenshot.id);
+      setMutationError(`Could not delete “${screenshot.name}”. The screenshot was restored. ${getErrorMessage(error)}`);
+    }
   };
 
   const handleSaveScreenshot = async (id, updates) => {
     const existing = screenshots.find((item) => item.id === id);
     if (!existing) return;
-    await updateScreenshot(id, updates);
-    setUndoEdit({
-      id,
-      name: existing.name,
-      category: existing.category,
-      note: existing.note,
-    });
-    await loadScreenshots();
+    setMutationError('');
+    setScreenshots((current) => current.map((item) => item.id === id ? { ...item, ...updates } : item));
+    try {
+      await updateScreenshot(id, updates);
+      setUndoEdit({
+        id,
+        name: existing.name,
+        category: existing.category,
+        note: existing.note,
+      });
+      const categories = screenshots
+        .filter((item) => item.id !== id)
+        .map((item) => item.category)
+        .concat(updates.category ?? existing.category)
+        .filter((item) => item && !DEFAULT_CATEGORIES.includes(item));
+      setCustomCategories([...new Set(categories)]);
+    } catch (error) {
+      console.error('Failed to save screenshot:', error);
+      setScreenshots((current) => rollbackScreenshotUpdate(current, id, updates, existing));
+      setMutationError(`Could not save changes to “${existing.name}”. The previous values were restored. ${getErrorMessage(error)}`);
+    }
   };
 
   const handleUndoEdit = async () => {
     if (!undoEdit) return;
     const previous = undoEdit;
-    await updateScreenshot(previous.id, { category: previous.category, note: previous.note });
+    const existing = screenshots.find((item) => item.id === previous.id);
+    if (!existing) return;
+    const updates = { category: previous.category, note: previous.note };
+    setMutationError('');
     setUndoEdit(null);
-    await loadScreenshots();
+    setScreenshots((current) => current.map((item) => item.id === previous.id ? { ...item, ...updates } : item));
+    try {
+      await updateScreenshot(previous.id, updates);
+    } catch (error) {
+      console.error('Failed to undo screenshot changes:', error);
+      setScreenshots((current) => rollbackScreenshotUpdate(current, previous.id, updates, existing));
+      setUndoEdit(previous);
+      setMutationError(`Could not undo changes to “${previous.name}”. The saved values were restored. ${getErrorMessage(error)}`);
+    }
   };
 
   const handleToggleFavorite = async (id) => {
     const shot = screenshots.find((item) => item.id === id);
     if (!shot) return;
-    await updateScreenshot(id, { favorite: !shot.favorite });
-    await loadScreenshots();
+    const updates = { favorite: !shot.favorite };
+    setMutationError('');
+    setScreenshots((current) => current.map((item) => item.id === id ? { ...item, ...updates } : item));
+    try {
+      await updateScreenshot(id, updates);
+    } catch (error) {
+      console.error('Failed to update screenshot importance:', error);
+      setScreenshots((current) => rollbackScreenshotUpdate(current, id, updates, shot));
+      setMutationError(`Could not update “${shot.name}”. Its previous importance setting was restored. ${getErrorMessage(error)}`);
+    }
   };
 
   const selectCategory = (category) => {
@@ -229,6 +315,12 @@ export default function App() {
         </main>
       </div>
       <BottomNavigation active={activeTab} onChange={selectTab} />
+      {mutationError && (
+        <div className="mutation-error" role="alert">
+          <span>{mutationError}</span>
+          <button type="button" onClick={() => setMutationError('')}>Dismiss</button>
+        </div>
+      )}
       {selectedScreenshot && (
         <ScreenshotDetail
           screenshot={selectedScreenshot}
@@ -407,4 +499,19 @@ function getCategoryCounts(screenshots) {
     if (shot.category) counts[shot.category] = (counts[shot.category] || 0) + 1;
   });
   return counts;
+}
+
+function getErrorMessage(error) {
+  return error instanceof Error ? error.message : 'Please try again.';
+}
+
+function rollbackScreenshotUpdate(screenshots, id, updates, previous) {
+  return screenshots.map((screenshot) => {
+    if (screenshot.id !== id) return screenshot;
+    const rollback = {};
+    Object.entries(updates).forEach(([key, value]) => {
+      if (Object.is(screenshot[key], value)) rollback[key] = previous[key];
+    });
+    return { ...screenshot, ...rollback };
+  });
 }
